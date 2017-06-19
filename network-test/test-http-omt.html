@@ -1,0 +1,114 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>http OMT perf test cases</title>
+  <style>
+  p { border-style: solid; padding: 5px; }
+  div { margin: 5px; }
+  a { padding: 1rem; }
+  </style>
+</head>
+<body>
+  <script>
+var perf_base_url = 'http-perf.html?';
+var img_tests = [
+  ['image-10k', '../image-test/rnd-10k.png'],
+  ['image-500k', '../image-test/rnd-500k.png'],
+  ['image-3m', '../image-test/rnd-3m.png']
+];
+
+var iframe_tests = [
+  ['iframe-10k', 'rnd-10k.html'],
+  ['iframe-500k', 'rnd-500k.html'],
+  ['iframe-3m', 'rnd-3m.html']
+];
+
+var xhr_tests = [
+  ['xhr-10k', 'rnd-10k.txt'],
+  ['xhr-500k', 'rnd-500k.txt'],
+  ['xhr-3m', 'rnd-3m.txt']
+];
+
+var testcases = [];
+
+function listTests(category, tests) {
+  var p = document.createElement('p');
+  p.textContent = category;
+  tests.forEach(function(v, k) {
+    var div = document.createElement('div');
+    div.textContent = k;
+    var idle_link = document.createElement('a');
+    idle_link.href = perf_base_url + category + '=' + v;
+    idle_link.textContent = 'idle';
+    var busy_link = document.createElement('a');
+    busy_link.href = perf_base_url + category + '=' + v + '&busy';
+    busy_link.textContent = 'busy';
+    div.appendChild(idle_link);
+    div.appendChild(busy_link);
+    p.appendChild(div);
+
+    idle_link.onclick = busy_link.onclick = function (e) {
+      runTest(e.target);
+      e.preventDefault();
+    };
+
+    testcases.push(idle_link, busy_link);
+  });
+  document.body.appendChild(p);
+}
+
+var currentTest = -1;
+function runAll() {
+  currentTest = 0;
+  runTest(testcases[currentTest]);
+}
+
+function runTest(target) {
+  console.log('run test for ' + target.href);
+  var href = target.href;
+  var numOfRuns = 20;
+  var perfData = [];
+
+  window.onmessage = function(e) {
+    popup.close();
+    perfData.push(e.data);
+
+    if (perfData.length < numOfRuns) {
+      popup = window.open(href + '&rand=' + performance.now());
+    } else {
+      popup = null;
+      displayResults(perfData, target);
+    }
+  };
+
+  var popup = window.open(href + '&rand=' + performance.now());
+}
+
+function displayResults(perfData, target) {
+  var total = 0;
+  for (var data of perfData) {
+    total += data;
+  }
+
+  var avg = total / perfData.length;
+  target.textContent += '(' + avg + ')';
+  console.log(perfData);
+
+  if (currentTest < 0) {
+    return;
+  }
+
+  if (++currentTest < testcases.length) {
+    runTest(testcases[currentTest]);
+  }
+}
+
+window.onload = function() {
+  listTests('img', new Map(img_tests));
+  listTests('iframe', new Map(iframe_tests));
+  listTests('xhr', new Map(xhr_tests));
+};
+  </script>
+<button onclick="runAll(); return false;">run all tests</button>
+</body>
+</html>

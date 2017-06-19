@@ -1,0 +1,89 @@
+<html>
+  <head>
+  </head>
+  <body>
+    <script>
+function print_log(str) {
+  console.log(str);
+  var logger = document.getElementById('logger');
+  logger.innerHTML += str + '<br/>';
+}
+
+var conn = null;
+function launch(requestUrl) {
+  var req = new PresentationRequest(requestUrl);
+  //var req = new PresentationRequest('http://invalid.com.tw/');
+  print_log('call PresentationRequest.start');
+  req.start().then(function(connection) {
+    print_log('session started: ' + connection.id + ' @' + connection.state);
+    connection.onconnect = function() {
+      print_log('session connected: ' + connection.state);
+      conn = connection;
+    };
+
+    connection.onclose = function() {
+      print_log('session state change: ' + connection.state);
+    };
+    connection.onterminate = function() {
+      print_log('session state change: ' + connection.state);
+    };
+    connection.onmessage = function(e) {
+      print_log('receive : ' + e.data);
+    };
+  }).catch(function(e) {
+    print_log('>>start error: ' + e);
+  });
+}
+
+function terminate() {
+  print_log('call PresentationConnection.terminate');
+  if (conn) {
+    print_log('>> ' + conn.id + ' @' + conn.state);
+    conn.terminate();
+  }
+}
+
+function sessionClose() {
+  print_log('call PresentationConnection.close');
+  if (conn) {
+    print_log('>> ' + conn.id + ' @' + conn.state);
+    conn.close();
+  }
+}
+
+function sendDate() {
+  print_log('call PresentationConnection.send');
+  if (conn) {
+    print_log('>> ' + conn.id + ' @' + conn.state);
+    conn.send(Date());
+  }
+}
+    </script>
+    <p>
+      <button onclick="launch('test-receiver.html');" style="height:50px;width:100%">Launch Presentation</button>
+    </p>
+    <p>
+      <button onclick="launch('mozilla.jpg');" style="height:50px;width:100%">Launch Presentation with jpg picture</button>
+    </p>
+    <p>
+      <button onclick="launch('demo.mp4');" style="height:50px;width:100%">Launch Presentation with clip</button>
+    </p>
+    <p>
+      <button onclick="launch('test-receiver2.html');" style="height:50px;width:100%">Launch Presentation with a bogus url</button>
+    </p>
+    <p>
+      <button onclick="terminate();" style="height:50;width:100%">Terminate Presentation</button>
+    </p>
+    <p>
+      <button onclick="sessionClose();" style="height:50;width:100%">Close Presentation Connection</button>
+    </p>
+    <p>
+      <button onclick="sendDate();" style="height:50;width:100%">Send Date string</button>
+    </p>
+    <p>
+      <button onclick="launch('data:text/html,<html><body>Hello</body></html>');" style="height:50;width:100%">Launch Unsupported URL</button>
+    </p>
+<p id="logger">
+</p>
+  </body>
+</html>

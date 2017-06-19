@@ -1,0 +1,29 @@
+<html>
+<head>
+<style>
+.inner-scroll {
+  background-color: #00dd00;
+  height: 500px;
+  overflow: auto;
+}
+</style>
+</head>
+<body>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('btn');
+    btn.addEventListener('touchend', function (evt) {
+      btn.parentNode.removeChild(btn);
+      evt.preventDefault();
+    });
+  });
+</script>
+<button id="btn">touchend preventDefault</button>
+<div class="inner-scroll">
+<span style="display: block; width: 110%;">
+Slaughterhouse-Five, or The Children's Crusade: A Duty-Dance with Death (1969) is a satirical novel by Kurt Vonnegut about World War II experiences and journeys through time of a soldier called Billy Pilgrim. Ranked the 18th greatest English language novel of the 20th century by Modern Library, it is generally recognized as Vonnegut's most influential and popular work.
+</span>
+</div>
+
+</body>
+</html>

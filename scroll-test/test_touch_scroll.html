@@ -1,0 +1,36 @@
+<html>
+<head>
+<title>Test Scrolling with touch event handler</title>
+<style>
+.head {
+  background-color: #0000dd;
+}
+.foot {
+  background-color: #dd0000;
+}
+.inner-scroll {
+  background-color: #00dd00;
+  height: 500px;
+  overflow: auto;
+}
+</style>
+</head>
+<body>
+<div class="head">
+Chaplain's Assistant Billy Pilgrim is a disoriented, fatalistic, and ill-trained American soldier. He does not like wars and is captured by the Germans during the Battle of the Bulge. The Germans put Billy and his fellow prisoners in a disused slaughterhouse (although there are animal carcasses hanging in the underground shelter) in Dresden. Their building is known as "Slaughterhouse number 5."
+</div>
+<div class="inner-scroll">
+<span style="display: block; width: 110%;">
+Slaughterhouse-Five, or The Children's Crusade: A Duty-Dance with Death (1969) is a satirical novel by Kurt Vonnegut about World War II experiences and journeys through time of a soldier called Billy Pilgrim. Ranked the 18th greatest English language novel of the 20th century by Modern Library, it is generally recognized as Vonnegut's most influential and popular work.
+</span>
+</div>
+<div class="foot">
+Billy's near death is the consequence of a string of events. Before the Germans capture Billy, he meets Roland Weary, a jingoist character and bully, just out of childhood like Billy, who constantly chastises him for his lack of enthusiasm for war. When captured, the Germans confiscate everything Weary has, including his boots, giving him hinged, wooden clogs to wear; Weary eventually dies of gangrene caused by the clogs. While dying in a railcar full of POWs, Weary manages to convince another soldier, Paul Lazzaro, that Billy is to blame. Lazzaro vows to avenge Weary's death by killing Billy, because revenge is "the sweetest thing in life." Lazzaro later shoots and kills Billy with a laser gun after his speech on flying saucers and the true nature of time before a large audience in Chicago, in a balkanized United States on February 13, 1976 (the future at the time of the book's writing).
+</div>
+<script>
+document.addEventListener('touchmove', function (evt) {
+  console.log('touchmove captured');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>gUM Test Page</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" charset="utf-8">
+  <link href='https://fonts.googleapis.com/css?family=Gentium+Basic:400,700' rel='stylesheet' type='text/css'>
+  <style>
+    #main {
+      display: block;
+      margin: 0px auto;
+      text-align: center
+    }
+    #content {
+      display: inline-block;
+    }
+    #frames {
+      display: inline-block;
+      max-width: 180px;
+      vertical-align: top;
+    }
+    #startbuttons {
+      display: block;
+    }
+    #stopbuttons {
+      display: none;
+    }
+    #message {
+      font-size: 24px;
+      font-family: "Gentium Basic", serif;
+    }
+    h1 {
+      font-size: 40px;
+      font-family: "Gentium Basic", serif;
+    }
+    input {
+      font-size: 28px;
+      font-family: "Gentium Basic", serif;
+    }
+    p {
+      color: green;
+    }
+    p.error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <h2><b>gum in the same origin</b></h2>
+  <iframe src="gum-test-single.html"></iframe>
+  <h2><b>gum in different origin (mozqa.com)</b></h2>
+  <iframe src="http://mozqa.com/qa-testcase-data/webapi/webrtc/gum_test.html"></iframe>
+  <h2><b>gum in another different origin (mozilla.gihub.io)</b></h2>
+  <iframe src="http://mozilla.github.io/qa-testcase-data/webapi/webrtc/gum_test.html"></iframe>
+  <h2><b>gum in nested iframe (mozqa.com in mozilla.github.io)</b></h2>
+  <iframe src="http://mozilla.github.io/qa-testcase-data/webapi/webrtc/iframemozqagum.html"></iframe>
+  <div id="main">
+    <h2><b>getUserMedia Test Page</b></h2>
+<a href="http://mozilla.github.com/webrtc-landing">Main webrtc demo page</a><br>
+Note: Audio will feedback unless you use a headset!<br><br>
+    <div id="startbuttons">
+      <input value="Video" onclick="startVideo();" type="button">
+      <input value="Front" onclick="startVideo('user');" type="button">
+      <input value="Audio" onclick="startAudio();" type="button">
+      <input value="Audio &amp; Video" onclick="startAudioVideo();" type="button">
+      <input value="Picture" onclick="startPicture();" type="button">
+    </div>
+    <div id="startbuttons2">
+      <input value="Audio2" onclick="startAudio2();" type="button">
+    </div>
+    <div id="images">
+       <div id="content"></div>
+       <div id="frames"></div>
+    </div>
+    <div id="message"></div>
+    <div id="content2"></div>
+    <div style="display: none;" id="stopbuttons">
+      <input value="Stop" onclick="stopMedia();" type="button">
+      <input value="Pause/Play" onclick="pauseMedia();" type="button">
+      <input id="snapshot" value="Snapshot" onclick="startSnapshot();" type="button">
+    </div>
+  
+    <div style="display: none;" id="stopbuttons2">
+      <input value="Stop" onclick="stopAudio2();" type="button">
+    </div>
+  </div>
+
+  <script type="application/javascript">
+  var video_status = false;
+  var video = document.createElement("video");
+  video.setAttribute("width", 640);
+  video.setAttribute("height", 480);
+
+  var snapshots = [];
+
+  var audio_status = false;
+  var audio = document.createElement("audio");
+  audio.setAttribute("controls", true);
+
+  var picture_status = false;
+  var picture = document.createElement("img");
+
+  var start = document.getElementById("startbuttons");
+  var stop = document.getElementById("stopbuttons");
+
+  var message = document.getElementById("message");
+  var content = document.getElementById("content");
+  var frames = document.getElementById("frames");
+  var snapshot = document.getElementById("snapshot");
+  
+  var saved_stream = null;
+  var capturing = false;
+
+  var audio2 = document.createElement("audio");
+  audio2.setAttribute("controls", true);
+  var start2 = document.getElementById("startbuttons2");
+  var stop2 = document.getElementById("stopbuttons2");
+  var content2 = document.getElementById("content2");
+
+  function buildConstraints(facingMode) {
+    var param = {video: true};
+    if (facingMode) {
+      param['videom'] = {mandatory: {facingMode: facingMode}};
+    }
+    return param;
+  }
+  function startVideo(facingMode) {
+    video_status = true;
+    startMedia(buildConstraints(facingMode));
+  }
+
+  function startAudioVideo() {
+    video_status = true;
+    audio_status = true;
+    startMedia({video:true, audio:true});
+  }
+
+  function startAudio() {
+    audio_status = true;
+    startMedia({audio:true});
+  }
+
+  function startPicture() {
+    picture_status = true;
+    startMedia({picture:true});
+  }
+
+  function stopMedia() {
+    if (video_status) {
+      video.mozSrcObject.stop();
+      video.mozSrcObject = null;
+      content.removeChild(video);
+      stopbuttons.removeChild(snapshot);
+      snapshot.value = "Snapshot";
+      frames.innerHTML = '';
+      capturing = false;
+      video_status = false;
+    } else if (audio_status) {
+      audio.mozSrcObject.stop();
+      audio.mozSrcObject = null;
+      content.removeChild(audio);
+      audio_status = false;
+    } else if (picture_status) {
+      picture.mozSrcObject = null;
+      content.removeChild(picture);
+      picture_status = false;
+    }
+    saved_stream = null;
+    stop.style.display = "none";
+    start.style.display = "block";
+  }
+
+  function pauseMedia() {
+    if (saved_stream) {
+      if (video_status) {
+        video.mozSrcObject = saved_stream;
+        video.play();
+      } else if (audio_status) {
+        audio.mozSrcObject = saved_stream;
+        audio.play();
+      }
+      saved_stream = null;
+    } else {
+      if (video_status) {
+        video.pause();
+        saved_stream = video.mozSrcObject;
+        video.mozSrcObject = null;
+      } else if (audio_status) {
+        audio.pause();
+        saved_stream = audio.mozSrcObject;
+        audio.mozSrcObject = null;
+      }
+    }
+  }
+
+  function startMedia(param) {
+    stop.style.display = "block";
+    start.style.display = "none";
+    try {
+      var onsuccess = function(stream) {
+        message.innerHTML = "<p>Success!</p>";
+        if (video_status) {
+          content.appendChild(video);
+          video.mozSrcObject = stream;
+          video.play();
+          frames.innerHTML = '';
+          stopbuttons.appendChild(snapshot);
+        } else if (audio_status) {
+          content.appendChild(audio);
+          audio.mozSrcObject = stream;
+          audio.play();
+        } else if (picture_status) {
+          content.appendChild(picture);
+          picture.src = window.URL.createObjectURL(stream);
+          picture.onload = function(e) {
+            window.URL.revokeObjectURL(this.src);
+          }
+        }
+      }; 
+      var onfailure = function(err) {
+        message.innerHTML = "<p class='error'>" + err + "</p>";
+        stopMedia();
+      };
+      window.navigator.mozGetUserMedia(param, onsuccess, onfailure);
+    } catch(e) {
+      message.innerHTML = "<p class='error'>" + e + "</p>";
+      stopMedia();
+    }
+  }
+
+  function startAudio2() {
+    stop2.style.display = "block";
+    start2.style.display = "none";
+    try {
+      var onsuccess = function(stream) {
+        content2.appendChild(audio2);
+        audio2.mozSrcObject = stream
+        audio2.play();
+      }
+
+      var onfailure = function(err) {
+        stopAudio2();
+      }
+      window.navigator.mozGetUserMedia({audio: true}, onsuccess, onfailure);
+    } catch(e) {
+      stopAudio2();
+    }
+  }
+
+  function stopAudio2() {
+    audio2.mozSrcObject.stop();
+    audio2.mozSrcObject = null;
+    content2.removeChild(audio2);
+    saved_stream = null;
+    stop2.style.display = "none";
+    start2.style.display = "block";
+  }
+
+  function pauseAudio2() {
+  }
+
+  function startSnapshot() {
+    capturing = !capturing;
+    if (capturing) {
+      captureImage();
+      snapshot.value = "Stop Snapshot";
+    } else {
+      snapshot.value = "Snapshot";
+    }
+  }
+
+  function captureImage() {
+    if (video_status && capturing) {
+      //dump("Capturing len " + snapshots.length + "\n");
+      var canvas = document.createElement('canvas');
+      var ctx = canvas.getContext('2d');
+
+      canvas.width  = video.videoWidth/4;
+      canvas.height = video.videoHeight/4;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (snapshots.unshift(canvas) > 4)
+        snapshots.length = 4;
+      frames.innerHTML = '';
+      for(var i=0; i<snapshots.length; i++) {
+        frames.appendChild(snapshots[i]);
+      }
+
+      setTimeout(captureImage, 2000);
+    }
+  }
+</script>
+
+</body>
+</html>
+

@@ -1,0 +1,44 @@
+    body {
+      background-image: url(rnd-3m.png);
+    }
+    img {
+      display: block;
+    }
+    img.i1hidden {
+      visibility: hidden;
+    }
+    img.i2display-none {
+      display: none;
+    }
+    img.i3hidden-size {
+      visibility: hidden;
+      width: 30px;
+      height: 30px;
+    }
+    img.i4not-in-view {
+      position: fixed;
+      top: -80px;
+      left: -80px
+    }
+    img.i5sure-not-in-view {
+      position: fixed;
+      top: -80px;
+      left: -80px;
+      height: 30px;
+      width: 30px;
+    }
+    img.i6end-of-doc {
+      position: absolute;
+      top: 5000px;
+      height: 30px;
+      width: 30px;
+    }
+    img.i7known-size {
+      height: 30px;
+      width: 30px;
+    }
+    img.i8no-size { }
+    img.i9zero-size {
+      height: 0px;
+      width: 0px;
+    }

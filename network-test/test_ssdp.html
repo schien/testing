@@ -1,0 +1,61 @@
+<!DOCTYPE HTML>
+<html>
+<!--
+-->
+<head>
+  <title>Test for SSDP.js</title>
+  <script type="text/javascript" src="ssdp.js"></script>
+
+<script type="text/javascript">
+
+function runTest() {
+
+  function testAddServiceRecords(records) {
+//    SSDPService.search();
+  }
+
+  const dummyType1 = 'upnp:urn:schemas-upnp-org:service:ContentDirectory:1';
+
+  function is(value, expect, str) {
+    var prefix = 'TEST-PASS';
+    if (value !== expect) {
+      prefix = 'TEST-FAIL';
+    }
+    console.log(prefix + ' - ' + str + ': ' + value + ', ' + expect);
+  }
+  function info(str) {
+    console.log('TEST-INFO - ' + str);
+  }
+  function error( e ) {
+    console.log( "Error occurred: " + e.name );
+  }
+
+  navigator.getNetworkServices(dummyType1)
+  .then(function(services) {
+    info('STEP 1 - add 1 service');
+    is(services.length, 0, 'expect no service');
+    console.log(JSON.stringify(services));
+    var promise = new Promise(function(resolve, reject) {
+      services.addEventListener('servicefound', function _servicefound(e) {
+        services.removeEventListener('servicefound', _servicefound);
+        console.log(JSON.stringify(services));
+        resolve(services);
+      });
+    });
+    testAddServiceRecords();
+    return promise;
+  }).then(function() {
+    info('test finished');
+  });
+
+}
+
+</script>
+</head>
+<body>
+<pre id="test">
+  <button onclick="runTest();">Scan</button>
+</pre>
+</body>
+</html>
+

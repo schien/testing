@@ -1,0 +1,22 @@
+<html>
+<head>
+  <title>Secondary Screen</title>
+  <script type="application/javascript">
+
+window.addEventListener('load', function() {
+  window.addEventListener('message', function(evt) {
+    console.log(evt.data);
+  });
+
+  var btn = document.getElementById('response-btn');
+  btn.addEventListener('click', function() {
+    navigator.responseSession('test-answer');
+  });
+});
+
+  </script>
+</head>
+<body>
+  <button id="response-btn">response Session</button>
+</body>
+</html>

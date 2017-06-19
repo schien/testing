@@ -1,0 +1,116 @@
+<!DOCTYPE HTML>
+<!--
+https://people.mozilla.org/~schien/network-test/http-perf.html?img={url}&busy
+https://people.mozilla.org/~schien/network-test/http-perf.html?iframe={url}&busy
+https://people.mozilla.org/~schien/network-test/http-perf.html?xhr={url}&busy
+-->
+<html>
+<head>
+  <title>http perf</title>
+</head>
+<body>
+  <script>
+var urlParams;
+(window.onpopstate = function () {
+    var match,
+        pl     = /\+/g,  // Regex for replacing addition symbol with a space
+        search = /([^&=]+)=?([^&]*)/g,
+        decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
+        query  = window.location.search.substring(1);
+
+    urlParams = {};
+    while (match = search.exec(query))
+       urlParams[decode(match[1])] = decode(match[2]);
+})();
+
+function postPerf(perf) {
+  if (!window.opener) {
+    return;
+  }
+
+  window.opener.postMessage(perf, '*');
+}
+
+function loadImage(url) {
+  console.log('load image: ' + url);
+  var img = new Image(50, 50);
+  img.onload = function() {
+    var t1 = performance.now();
+    console.log('#tt#load image complete: ' + (t1 - t0) + ' ms');
+    document.body.prepend('load ' + url + ' complete in ' + (t1 - t0) + ' ms');
+    postPerf(t1-t0);
+  };
+  img.src = url + '?' + Date();
+
+  var t0 = performance.now();
+  document.body.appendChild(img);
+}
+
+function loadIframe(url) {
+  console.log('load iframe: ' + url);
+  var iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.onload = function() {
+    var t1 = performance.now();
+    console.log('#tt#load iframe complete: ' + (t1 - t0) + ' ms');
+    document.body.prepend('load ' + url + ' complete in ' + (t1 - t0) + ' ms');
+    postPerf(t1-t0);
+  };
+
+  var t0 = performance.now();
+  document.body.appendChild(iframe);
+}
+
+function loadXHR(url) {
+  console.log('load xhr: ' + url);
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', url + '?' + Date());
+  xhr.onload = function() {
+    var t1 = performance.now();
+    console.log('#tt#load xhr complete: ' + (t1 - t0) + ' ms');
+    document.body.textContent = 'load ' + url + ' complete in ' + (t1 - t0) + ' ms';
+    postPerf(t1-t0);
+  };
+
+  var t0 = performance.now();
+  xhr.send();
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function pausecomp(millis)
+{
+  var date = new Date();
+  var curDate = null;
+  do { curDate = new Date(); }
+  while(curDate-date < millis);
+}
+
+async function runBusyLoop() {
+  console.log('busy loop start');
+  for (var i = 0; i < 10; i++) {
+    await sleep(50);
+    pausecomp(450);
+  }
+  console.log('busy loop finished');
+}
+
+window.onload = function() {
+  if (urlParams['img']) {
+    loadImage(urlParams['img']);
+  } else if (urlParams['iframe']) {
+    loadIframe(urlParams['iframe']);
+  } else if (urlParams['xhr']) {
+    loadXHR(urlParams['xhr']);
+  }
+
+  if ('busy' in urlParams) {
+    runBusyLoop();
+  }
+};
+  </script>
+</body>
+</html>
+

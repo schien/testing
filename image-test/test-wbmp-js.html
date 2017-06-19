@@ -1,0 +1,23 @@
+<html>
+<head>
+<title>Test WBMP.js</title>
+<script type="text/javascript" src="wbmp.js"></script>
+</head>
+<body>
+<img id="wbmp-img" src="test-wbmp.wbmp" type></img>
+<script>
+console.log('test start');
+window.onload = function check_loaded() {
+  console.log('onload fired');
+  if ("WBMP" in window) {
+    console.log("start decoding");
+    var wbmp_img = document.getElementById('wbmp-img');
+    WBMP.decode(wbmp_img, wbmp_img.src);
+  } else {
+    console.log("wait for WBMP loading");
+    setTimeout(check_loaded, 50);
+  }
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE HTML>
+<html>
+<!--
+https://bugzilla.mozilla.org/show_bug.cgi?id=878577
+-->
+<head>
+  <title>Test for Bug 878577 - Hard limit of decoded image buffer size</title>
+</head>
+
+<body>
+
+<!--
+  Initial setup: The default size limit is 65M
+  Step 1: Load 10M-pixels-1.png ok
+  Step 2: Load 10M-pixels-2.png fail
+  Step 3: Remove 10M-pixels-1.png and clear the decoded image
+  Step 4: Load 10M-pixels-3.png ok
+-->
+
+<script>
+
+function clearImageCache() {
+  // do nothing
+}
+
+function finish() {
+  console.log("test finished");
+}
+
+function ok(result, msg) {
+  console.log((result? "TEST-PASS: " : "TEST-FAILED: ") + msg);
+}
+
+function info(msg) {
+  console.log("TEST-INFO: " + msg);
+}
+
+function executeSoon(callback) {
+  setTimeout(callback, 100);
+}
+
+function loadImage(url) {
+  info('loading ' + url);
+  var image = new Image(50,50);
+  image.src = url;
+  document.body.appendChild(image);
+  return image;
+}
+
+function fail(msg) {
+  return function() {
+    ok(false, msg);
+    finish();
+  };
+}
+
+window.onload = function() {
+  // provide a clean setup
+  clearImageCache();
+  var img_8m = loadImage('10M-pixels-1.png');
+  img_8m.onerror = fail('unable to load 10M-pixels-1.png');
+  img_8m.onload = function() {
+    ok(true, 'expect success on loading a 10M-pixel image');
+
+    var another_img_10M = loadImage('10M-pixels-2.png');
+    another_img_10M.onload = fail('should fail to load due to image buffer size limit');
+    another_img_10M.onerror = function() {
+      ok(true, 'expect fail on loading another 10M-pixel image');
+
+      // remove image cache
+      info('discard decoded image buffer');
+      img_8m.onerror = null;
+      img_8m.src = null;
+      another_img_10M.onerror = null;
+      another_img_10M.src = null;
+      document.body.removeChild(img_8m);
+      document.body.removeChild(another_img_10M);
+      clearImageCache();
+
+      // Spin the event to give the image a chance to be discarded.
+      executeSoon(function() {
+      executeSoon(function() {
+      executeSoon(function() {
+        var last_img_10M = loadImage('10M-pixels-3.png');
+        another_img_10M.onerror = fail('unable to load 10M-pixels-3.png');
+        another_img_10M.onload = function() {
+          ok(true, 'expect success on loading another 10M-pixel image');
+          last_img_10M.onerror = null;
+          last_img_10M.onload = null;
+          SimpleTest.finish();
+        };
+      });
+      });
+      });
+
+    }; // another_img_10M.onerror
+  }; // img_8m.onload
+};
+
+</script>
+</body>
+</html>
+

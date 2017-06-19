@@ -1,0 +1,22 @@
+<html>
+<head>
+  <title>Primary Screen</title>
+  <script type="application/javascript">
+
+window.addEventListener('load', function() {
+  window.addEventListener('message', function(evt) {
+    console.log(evt.data);
+  });
+
+  var btn = document.getElementById('request-btn');
+  btn.addEventListener('click', function() {
+    navigator.requestSession('http://people.mozilla.org/~schien/secondary.html', 'test-offer');
+  });
+});
+
+  </script>
+</head>
+<body>
+  <button id="request-btn">request Session</button>
+</body>
+</html>

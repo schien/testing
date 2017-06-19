@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+
+<body>
+<script>
+  var v = document.createElement('video');
+  var vout = document.createElement('video');
+
+  v.src = "demo.mp4";
+  v.width = 800;
+  v.height = 600;
+  var stream = v.mozCaptureStreamUntilEnded();
+  vout.mozSrcObject = stream;
+  vout.width = 800;
+  vout.height = 600;
+
+  document.body.appendChild(vout);
+  v.play();
+  vout.play();
+</script>
+</body>
+</html>

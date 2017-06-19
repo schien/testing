@@ -1,0 +1,17 @@
+<html>
+<head>
+<title>Test Video</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no"></meta>
+</head>
+<body>
+  <video id="fullvideo" src="/~mfinkle/casting/Mobile-launch-greatday640.mp4" controls></video>
+  <button id="btnfull">Toggle FullScreen</button>
+<script>
+  var btnfull = document.getElementById('btnfull');
+  btnfull.addEventListener('click', function() {
+    var fullvideo = document.getElementById('fullvideo');
+    fullvideo.mozRequestFullScreen();
+  });
+</script>
+</body>
+</html>

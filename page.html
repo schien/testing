@@ -1,0 +1,16 @@
+<html>
+  <head>
+  </head>
+  <body>
+    <input id="test" type="button" value="Click me"/>
+    <script>
+      var test = document.getElementById("test");
+      test.addEventListener("click", function() {
+        alert(navigator.greetme("page script"));
+      }, false);
+      window.addEventListener('message', function(evt) {
+        alert(evt.data);
+      });
+    </script>
+  </body>
+</html>

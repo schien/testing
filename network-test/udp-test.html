@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>UDPSocket Test Page</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" charset="utf-8">
+  <script type="application/javascript">
+  function runPerfTest() {
+    const packetSize = 1 << 8;
+    const totalPacketSize = 1 << 20;
+    const packetCount = totalPacketSize / packetSize;
+
+    var dataArray = new ArrayBuffer(packetSize);
+    var dataView = new Uint8Array(dataArray);
+    for (var i = 0; i < packetSize; i++) {
+      dataView[i] = i;
+    }
+    var t0 = performance.now();
+    var mySocket = new UDPSocket({remoteAddress: "127.0.0.1"});
+    var port = mySocket.localPort;
+    var recvCount = 0;
+    mySocket.addEventListener('message', function(e) {
+      recvCount++;
+      if (recvCount >= packetCount) {
+        var t3 = performance.now();
+        console.log('recv: ' + (t3 - t1) + ' ms');
+      }
+    });
+    var t1 = performance.now();
+    for (var i = 0; i < packetCount; i++) {
+      mySocket.send(dataArray, '127.0.0.1', port);
+    }
+    var t2 = performance.now();
+
+    console.log('socket init: ' + (t1 - t0) + ' ms');
+    console.log('send('+ packetSize + '*' + packetCount + '): ' + (t2 - t1) + ' ms');
+  }
+  function runTest() {
+    const remoteAddress = "8.8.8.8";
+    const remotePort = 5566;
+    const arrayBufferContent = "HELLO_ARRAY_BUFFER";
+    var dataArray = new ArrayBuffer(arrayBufferContent.length);
+    var dataView = new Uint8Array(dataArray);
+    for (var i = 0; i < arrayBufferContent.length; i++) { dataView[i] = arrayBufferContent.charCodeAt(i); }
+    var mySocket = new UDPSocket({remoteAddress: "8.8.4.4", remotePort: 7788});
+    try {
+      mySocket.send("HELLO_UDPSOCKET");
+      mySocket.send(dataArray);
+      mySocket.send("HELLO_ANOTHER_UDPSOCKET", remoteAddress, remotePort);
+      mySocket.send(dataView, remoteAddress, remotePort);
+    } catch (e) {
+      console.log("should not fail: " + e);
+    }
+
+    console.log("local addr: " + mySocket.localAddress + ', local port: ' + mySocket.localPort);
+    mySocket.addEventListener("message", function(e) {
+      console.log('receive incoming UDP message');
+      var recvData = e.data;
+      var dataView = String.fromCharCode.apply(null, new Uint8Array(recvData));
+      var address = e.remoteAddress;
+      var port = e.remotePort;
+      console.log('from ' + address + ':' + port + '[' + dataView + ']');
+    });
+
+    mySocket.send("ECHO_UDP_SOCKET", '127.0.0.1', mySocket.localPort);
+    
+    setTimeout(function() {
+    try {
+      mySocket.close();
+      mySocket.send("SHOULD_NOT_SUCCEED");
+    } catch (e) {
+      console.log(e);
+    }
+    }, 5000);
+  }
+
+  function runMcastTest() {
+    var mySocket = new UDPSocket({localPort: 1900});
+    mySocket.joinMulticastGroup("239.255.255.250");
+    mySocket.onmessage = function (e) { 
+      // Convert received data from ArrayBuffer to string
+      var data = String.fromCharCode.apply(null, new Uint8Array(e.data));
+      console.log("Remote address: " + e.remoteAddress + 
+                  " Remote port: " + e.remotePort +  
+                  " Received data" + data);
+    };  
+
+    setTimeout(function() {
+      mySocket.close();
+      console.log('mcast socket is closed');
+    }, 5000);
+  }
+  </script>
+</head>
+<body>
+<button onclick="runTest();">Run Test</button>
+<button onclick="runMcastTest();">Run Mcast Test</button>
+<button onclick="runPerfTest();">Run Perf Test</button>
+</body>
+</html>

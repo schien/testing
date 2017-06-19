@@ -1,0 +1,817 @@
+# HG changeset patch
+# User Shih-Chiang Chien <schien@mozilla.com>
+# Date 1409106483 -28800
+#      Wed Aug 27 10:28:03 2014 +0800
+# Node ID 6b316cd7bd161512ac81d7dbd2a7795cc78cc468
+# Parent 6b8da5940f74dae0c315a014b572e7c4e78ddb35
+create presentation profile over devtools/discovery
+* * *
+polyfill presentation discovery on b2g
+
+diff --git a/b2g/chrome/content/connectivity/presentation-primary.js b/b2g/chrome/content/connectivity/presentation-primary.js
+new file mode 100644
+--- /dev/null
++++ b/b2g/chrome/content/connectivity/presentation-primary.js
+@@ -0,0 +1,87 @@
++dump('####### presentation-primary.js\n');
++
++/* Device Discovery adapter */
++// primary screen:
++//  1. navigator.requestSession(offer);
++//  2. window.addEventListener('message', function(evt) { /* handle evt.data.answer */ });
++function requestSession(url, offer) {
++  dump('presentation-primary: requestSession\n');
++  sendAsyncMessage('Presentation:requestSession', {url: url, offer: offer});
++
++  addMessageListener('Presentation:requestSession:Return', function requestSessionReturn(message) {
++    dump('presentation-primary: requestSession:Return\n');
++    let answer = message.json;
++    removeMessageListener('Presentation:requestSession:Return', requestSessionReturn);
++    let msg = {
++      type: 'requestSession:Return',
++      answer: answer,
++    };
++    content.dispatchEvent(new content.MessageEvent('message', {
++      data: Cu.cloneInto(msg, content),
++    }));
++  });
++}
++
++
++//XXX
++function peekDevice() {
++  dump('presentation-primary: peekDevice\n');
++  sendAsyncMessage('Presentation:peekDevice');
++}
++
++addMessageListener('Presentation:device-available', function(message) {
++  dump('presentation-primary: device-available\n');
++  let available = message.json;
++  let msg = {
++    type: 'device-available',
++    available: available,
++  };
++  content.dispatchEvent(new content.MessageEvent('message', {
++    data: Cu.cloneInto(msg, content),
++  }));
++});
++
++function createOffer() {
++  dump('presentation-primary: createOffer\n');
++  return Date.now();
++}
++
++function sessionSend(channelId, message) {
++  dump('presentation-primary: sessionSend ' + channelId + '\n');
++  sendAsyncMessage('Presentation:sessionSend', {channelId: channelId, message: message});
++}
++
++addMessageListener('Presentation:ondata', function(message) {
++  dump('presentation-primary: ondata\n');
++  let msg = message.json;
++  content.dispatchEvent(new content.MessageEvent('message', {
++    data: Cu.cloneInto(msg, content),
++  }));
++});
++
++function sessionClose(localId, remoteId) {
++  dump('presentation-primary: sessionClose\n');
++  sendAsyncMessage('Presentation:sessionClose', {localId: localId, remoteId: remoteId});
++}
++
++addMessageListener('Presentation:sessionClose', function(message) {
++  dump('presentation-primary: recv sessionClose\n');
++  let channelId = message.json;
++  let msg = {
++    type: 'sessionClose',
++    channelId: channelId,
++  };
++  content.dispatchEvent(new content.MessageEvent('message', {
++    data: Cu.cloneInto(msg, content),
++  }));
++});
++
++addEventListener('DOMContentLoaded', function() {
++Cu.exportFunction(requestSession, content.navigator, {defineAs: "requestSession"});
++Cu.exportFunction(peekDevice, content.navigator, {defineAs: "peekDevice"});
++Cu.exportFunction(createOffer, content.navigator, {defineAs: "createOffer"});
++Cu.exportFunction(sessionSend, content.navigator, {defineAs: "sessionSend"});
++Cu.exportFunction(sessionClose, content.navigator, {defineAs: "sessionClose"});
++dump('presentation-primary: ' + content.location.href + '\n');
++});
++
+diff --git a/b2g/chrome/content/connectivity/presentation-secondary.js b/b2g/chrome/content/connectivity/presentation-secondary.js
+new file mode 100644
+--- /dev/null
++++ b/b2g/chrome/content/connectivity/presentation-secondary.js
+@@ -0,0 +1,38 @@
++dump('####### presentation-secondary.js\n');
++
++/* Device Discovery adapter */
++// secondary screen
++//  1. window.addEventListener('message', function(evt) {
++//       var answer = ...  /* generate from evt.data.offer */
++//       navigator.responseSession(answer);
++//     }
++function responseSession(answer) {
++  dump('presentation-secondary: responseSession\n');
++  sendAsyncMessage('Presentation:responseSession', answer);
++}
++
++addMessageListener('Presentation:requestSession', function(message) {
++  dump('presentation-secondary: requestSession\n');
++  let offer = message.json;
++  var msg = {
++    type: 'requestSession',
++    offer: offer,
++  };
++  content.dispatchEvent(new content.MessageEvent('message', {
++    data: Cu.cloneInto(msg, content),
++  }));
++});
++
++
++//XXX
++function createAnswer() {
++  dump('presentation-secondary: createAnswer\n');
++  return Date.now();
++}
++
++addEventListener('DOMContentLoaded', function() {
++Cu.exportFunction(responseSession, content.navigator, {defineAs: "responseSession"});
++Cu.exportFunction(createAnswer, content.navigator, {defineAs: "createAnswer"});
++sendAsyncMessage('Presentation:secondary-loaded');
++dump('presentation-secondary: ' + content.location.href + '\n');
++});
+diff --git a/b2g/chrome/content/connectivity/presentation.js b/b2g/chrome/content/connectivity/presentation.js
+new file mode 100644
+--- /dev/null
++++ b/b2g/chrome/content/connectivity/presentation.js
+@@ -0,0 +1,278 @@
++/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- /
++/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
++ * You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++"use strict";
++
++const kPresentationPrimaryScript = "chrome://b2g/content/connectivity/presentation-primary.js";
++const kPresentationSecondaryScript = "chrome://b2g/content/connectivity/presentation-secondary.js";
++
++function log(msg) {
++  dump('Presentation.js: ' + msg + '\n');
++}
++
++XPCOMUtils.defineLazyModuleGetter(this, "SystemAppProxy",
++                                  "resource://gre/modules/SystemAppProxy.jsm");
++
++XPCOMUtils.defineLazyModuleGetter(this, "presentationServer",
++                                  "resource://gre/modules/presentation-server.jsm");
++
++let availableDevices = [];
++let channelMap = {};
++
++let PresentationController = {
++  _searchRepeat: Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer),
++
++  init: function() {
++    log('init');
++    Services.obs.addObserver(this, 'inprocess-browser-shown', false);
++    Services.obs.addObserver(this, 'remote-browser-shown', false);
++    Services.obs.addObserver(this, "network-active-changed", false);
++
++    presentationServer.init();
++    this._searchRepeat.initWithCallback(presentationServer.scanForDevices,
++                                        10000, Ci.nsITimer.TYPE_REPEATING_SLACK);
++    presentationServer.scanForDevices();
++  },
++  deinit: function() {
++    log('deinit');
++    Services.obs.removeObserver(this, 'inprocess-browser-shown');
++    Services.obs.removeObserver(this, 'remote-browser-shown');
++    Services.obs.removeObserver(this, "network-active-changed");
++
++    presentationServer.deinit();
++    this._searchRepeat.cancel();
++  },
++
++  receiveMessage: function(msg) {
++    let mm = msg.target.QueryInterface(Ci.nsIFrameLoaderOwner).frameLoader.messageManager;
++    log('handle-message: ' + msg.name);
++    switch (msg.name) {
++      case 'Presentation:requestSession':
++        let {url, offer} = msg.data;
++        SystemAppProxy.addEventListener('mozContentEvent', function selectDeviceResult(evt) {
++          let msg = evt.detail;
++
++          if (!msg.type || msg.type !== 'select-device-result') {
++            return;
++          }
++
++          log('mozContentEvent: select-device-result');
++          SystemAppProxy.removeEventListener('mozContentEvent', selectDeviceResult);
++
++          let device = msg.device;
++          presentationServer.requestSession(device, url, offer);
++          presentationServer.once('requestSession:Answer', function(answer) {
++            log('requestSession:Answer');
++            channelMap[answer] = device;
++            mm.sendAsyncMessage('Presentation:requestSession:Return', answer);
++          });
++        });
++
++        let detail = {
++          type: 'select-device',
++          devices: availableDevices,
++        };
++        SystemAppProxy.dispatchEvent(detail);
++        break;
++      case 'Presentation:peekDevice':
++        mm.sendAsyncMessage('Presentation:device-available', availableDevices.length > 0);
++        break;
++      case 'Presentation:sessionSend': {
++        let {channelId, message} = msg.data;
++        let device = channelMap[channelId];
++        if (!device) {
++          log('sessionSend fail: unknown channelId ' + channelId);
++          return;
++        }
++        presentationServer.sessionSend(device, channelId, message);
++        break;
++      }
++      case 'Presentation:sessionClose': {
++        let {localId, remoteId} = msg.data;
++        let device = channelMap[remoteId];
++        if (!device) {
++          log('sessionClose fail: unknown channelId ' + remoteId);
++          return;
++        }
++        presentationServer.sessionClose(device, localId);
++        delete channelMap[remoteId];
++        break;
++      }
++    }
++  },
++
++  observe: function(subject, topic, data) {
++    log('observe: ' + topic);
++    switch (topic) {
++      case 'network-active-changed':
++        this._handleNetworkChange(subject);
++        break;
++      case 'inprocess-browser-shown':
++      case 'remote-browser-shown':
++        this._handleBrowserShown(subject);
++        break;
++    }
++  },
++
++  _handleBrowserShown: function(frameLoader) {
++    frameLoader = frameLoader.QueryInterface(Ci.nsIFrameLoader);
++    if (!frameLoader.ownerIsBrowserOrAppFrame) {
++      return;
++    }
++    let mm = frameLoader.messageManager;
++    try {
++      mm.loadFrameScript(kPresentationPrimaryScript, true, true);
++      log('Load success: ' + kPresentationPrimaryScript)
++      let msgs = [
++        'Presentation:requestSession',
++        'Presentation:peekDevice',
++        'Presentation:sessionSend',
++        'Presentation:sessionClose',
++      ];
++      for (let msg of msgs) {
++        mm.addMessageListener(msg, this);
++      }
++
++      presentationServer.on('ondata', function(msg) {
++        log('ondata: ' + JSON.stringify(msg));
++        mm.sendAsyncMessage('Presentation:ondata', msg);
++      });
++
++      presentationServer.on('sessionClose', function(channelId) {
++        log('sessionClose: ' + channelId);
++        mm.sendAsyncMessage('Presentation:sessionClose', channelId);
++      });
++
++    } catch (e) {
++      log('Error loading ' + kPresentationPrimaryScript + ' as frame script: ' + e);
++    }
++  },
++
++  _handleNetworkChange: function(activeNetwork) {
++    if (!activeNetwork) {
++      log("No active network");
++      return;
++    }
++
++    activeNetwork = activeNetwork.QueryInterface(Ci.nsINetworkInterface);
++    if (activeNetwork.type === Ci.nsINetworkInterface.NETWORK_TYPE_WIFI) {
++      presentationServer.deinit();
++      presentationServer.init();
++      presentationServer.scanForDevices();
++    }
++  },
++};
++
++(function() {
++  function updateDevice(devices) {
++    log('udpateDevice');
++    availableDevices = devices;
++    navigator.mozSettings.createLock().set({'presentation.sender.discovereddevices': availableDevices});
++  }
++
++  function onSessionClose(channelId) {
++    log('onSessionClose: ' + channelId);
++    let device = channelMap[channelId];
++    if (!device) {
++      log('remote sessionClose fail: unknown channelId ' + channelId);
++      return;
++    }
++    delete channelMap[channelId];
++  }
++
++  function onRequestSession({device, url, offer}) {
++    log('requestSession on secondary: ' + url);
++    SystemAppProxy.addEventListener('mozContentEvent', function presentationLaunchResult(evt) {
++      let detail = evt.detail;
++      if (detail.type !== 'presentation-launch-result') {
++        return;
++      }
++      log('mozContentEvent: presentation-launch-result');
++      SystemAppProxy.removeEventListener('mozContentEvent', presentationLaunchResult);
++      let frameLoader = detail.frame.QueryInterface(Ci.nsIFrameLoaderOwner).frameLoader;
++      let mm = frameLoader.messageManager;
++      if (detail.reuse) {
++        log('reuse iframe');
++        mm.sendAsyncMessage('Presentation:requestSession', offer);
++        mm.addMessageListener('Presentation:responseSession', function responseSession(message) {
++          log('responseSession');
++          let answer = message.json;
++          mm.removeMessageListener('Presentation:responseSession', responseSession);
++          channelMap[offer] = device;
++          presentationServer.responseSession(device, answer);
++        });
++        return;
++      }
++
++      try {
++        mm.loadFrameScript(kPresentationSecondaryScript, true, true);
++        mm.addMessageListener('Presentation:secondary-loaded', function secondaryLoaded(message) {
++          log('secondary-loaded');
++          mm.removeMessageListener('Presentation:secondary-loaded', secondaryLoaded);
++          mm.sendAsyncMessage('Presentation:requestSession', offer);
++          mm.addMessageListener('Presentation:responseSession', function responseSession(message) {
++            log('responseSession');
++            let answer = message.json;
++            mm.removeMessageListener('Presentation:responseSession', responseSession);
++            channelMap[offer] = device;
++            presentationServer.responseSession(device, answer);
++
++          });
++        });
++      } catch (e) {
++        log('Error loading ' + kPresentationSecondaryScript + ' as frame script: ' + e);
++      }
++    });
++
++    let detail = {
++      type: 'presentation-launch',
++      url: url,
++    };
++    SystemAppProxy.dispatchEvent(detail);
++  }
++
++  function init() {
++    navigator.mozSettings.createLock().set({'presentation.sender.discovereddevices': availableDevices});
++    presentationServer.on('update-device', updateDevice);
++    presentationServer.on('sessionClose', onSessionClose);
++    // secondary
++    presentationServer.on('requestSession', onRequestSession);
++    PresentationController.init();
++  }
++
++  function deinit() {
++    PresentationController.deinit();
++    availableDevices = [];
++    channelMap = {};
++    presentationServer.off('update-device', updateDevice);
++    presentationServer.off('sessionClose', onSessionClose);
++    presentationServer.off('requestSession', onRequestSession);
++  }
++
++  let initialized = false;
++
++  SettingsListener.observe("dom.presentation.visible", false,
++                           function(value) {
++    try {
++      if (value) {
++        if (initialized) {
++          return;
++        }
++        init();
++        initialized = true;
++      } else {
++        if (!initialized) {
++          return;
++        }
++        deinit();
++        initialized = false;
++      }
++    } catch(e) {
++      log("Error while initializing PresentationDevice: " +
++           e + "\n" + e.stack);
++    }
++  });
++})();
+diff --git a/b2g/chrome/content/shell.html b/b2g/chrome/content/shell.html
+--- a/b2g/chrome/content/shell.html
++++ b/b2g/chrome/content/shell.html
+@@ -35,16 +35,20 @@
+ #else
+   <!-- this file is only loaded on Gonk to manage ADB state -->
+   <script type="application/javascript;version=1.8"
+           src="chrome://b2g/content/devtools/adb.js"> </script>
+ #endif
+   <!-- manages DevTools server state -->
+   <script type="application/javascript;version=1.8"
+           src="chrome://b2g/content/devtools/debugger.js"> </script>
++
++  <!-- manages Presentation API device discovery-->
++  <script type="application/javascript;version=1.8"
++          src="chrome://b2g/content/connectivity/presentation.js"> </script>
+ </head>
+   <body id="container">
+ #ifdef FXOS_SIMULATOR
+ #ifndef MOZ_MULET
+     <!--
+      Some additional buttons are displayed on desktop to fake hardware buttons.
+     -->
+     <footer id="controls">
+diff --git a/b2g/chrome/jar.mn b/b2g/chrome/jar.mn
+--- a/b2g/chrome/jar.mn
++++ b/b2g/chrome/jar.mn
+@@ -30,16 +30,20 @@ chrome.jar:
+   content/runapp.js                     (content/runapp.js)
+ #endif
+ * content/content.css                   (content/content.css)
+   content/touchcontrols.css             (content/touchcontrols.css)
+ 
+ * content/payment.js                    (content/payment.js)
+   content/identity.js                   (content/identity.js)
+ 
++  content/connectivity/presentation.js  (content/connectivity/presentation.js)
++  content/connectivity/presentation-primary.js  (content/connectivity/presentation-primary.js)
++  content/connectivity/presentation-secondary.js  (content/connectivity/presentation-secondary.js)
++
+ % override chrome://global/skin/media/videocontrols.css chrome://b2g/content/touchcontrols.css
+ % override chrome://global/content/aboutCertError.xhtml chrome://b2g/content/aboutCertError.xhtml
+ % override chrome://global/skin/netError.css chrome://b2g/content/netError.css
+ 
+   content/ErrorPage.js                  (content/ErrorPage.js)
+   content/aboutCertError.xhtml          (content/aboutCertError.xhtml)
+   content/netError.css                  (content/netError.css)
+   content/images/errorpage-larry-black.png (content/images/errorpage-larry-black.png)
+diff --git a/dom/moz.build b/dom/moz.build
+--- a/dom/moz.build
++++ b/dom/moz.build
+@@ -131,16 +131,18 @@ if CONFIG['MOZ_B2G']:
+         'mobileid'
+     ]
+ 
+ if CONFIG['MOZ_B2G_BT_API_V2']:
+     DIRS += ['bluetooth2']
+ else:
+     DIRS += ['bluetooth']
+ 
++DIRS += ['presentation']
++
+ TEST_DIRS += [
+     'tests',
+     'imptests',
+ ]
+ 
+ if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('gtk2', 'gtk3', 'cocoa', 'windows', 'android', 'qt'):
+     TEST_DIRS += ['plugins/test']
+ 
+diff --git a/dom/presentation/moz.build b/dom/presentation/moz.build
+new file mode 100644
+--- /dev/null
++++ b/dom/presentation/moz.build
+@@ -0,0 +1,15 @@
++# -*- Mode: python; c-basic-offset: 4; indent-tabs-mode: nil; tab-width: 40 -*-
++# vim: set filetype=python:
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++EXTRA_JS_MODULES += [
++    'presentation-server.jsm',
++]
++
++FAIL_ON_WARNINGS = True
++
++include('/ipc/chromium/chromium-config.mozbuild')
++
++FINAL_LIBRARY = 'xul'
+diff --git a/dom/presentation/presentation-server.jsm b/dom/presentation/presentation-server.jsm
+new file mode 100644
+--- /dev/null
++++ b/dom/presentation/presentation-server.jsm
+@@ -0,0 +1,228 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++"use strict";
++
++const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
++
++// XXX replace emit/on/once/off
++/*
++function on(target, type, listener) {}
++function off(target, type, listener) {}
++function once(target, type, listener) {}
++function emit(target, type, ...args) {}
++*/
++this.EXPORTED_SYMBOLS = ['presentationServer'];
++
++Cu.import("resource://gre/modules/XPCOMUtils.jsm");
++
++XPCOMUtils.defineLazyServiceGetter(this, "ppmm",
++                                   "@mozilla.org/parentprocessmessagemanager;1",
++                                   "nsIMessageBroadcaster");
++
++XPCOMUtils.defineLazyGetter(this, "devtools", function() {
++  const { devtools } =
++    Cu.import("resource://gre/modules/devtools/Loader.jsm", {});
++  return devtools;
++});
++
++XPCOMUtils.defineLazyGetter(this, "discovery", function() {
++  return devtools.require("devtools/toolkit/discovery/discovery");
++});
++
++const { emit, on, once, off } = devtools.require("sdk/event/core");
++
++const PRESENTATION_SERVICE = "presentation";
++
++XPCOMUtils.defineLazyGetter(this, "converter", () => {
++  let conv = Cc["@mozilla.org/intl/scriptableunicodeconverter"].
++             createInstance(Ci.nsIScriptableUnicodeConverter);
++  conv.charset = "utf8";
++  return conv;
++});
++
++let logging = true;
++function log(msg) {
++  if (logging) {
++    dump("Presentation Server: " + msg + "\n");
++  }
++}
++
++function Device(name, ip, port) {
++  this.name = name;
++  this.ip = ip;
++  this.port = port;
++}
++
++function SignalingChannel() {
++  this._socket = Cc["@mozilla.org/network/udp-socket;1"].createInstance(Ci.nsIUDPSocket);
++  this._socket.init(-1, false);
++  this._socket.asyncListen(this);
++}
++
++SignalingChannel.prototype = {
++  onmessage: null,
++
++  //nsIUDPSocketListener
++  QueryInterface : XPCOMUtils.generateQI([Ci.nsIUDPSocketListener]),
++
++  onPacketReceived : function(aSocket, aMessage){
++    log('receive remote message: ' + aMessage.data);
++    let device = new Device('remote', aMessage.fromAddr.address, aMessage.fromAddr.port);
++    let rawData = [];
++    for (let i = 0; i < aMessage.rawData.length; i++) {
++      rawData[i] = aMessage.rawData[i];
++    }
++    let msg = JSON.parse(converter.convertFromByteArray(rawData, rawData.length));
++    if (this.onmessage) {
++      this.onmessage(device, msg);
++    }
++  },
++
++  onStopListening: function(aSocket, aStatus){
++    this.onmessage = null;
++  },
++
++  send: function(device, msg) {
++    log("Send to " + JSON.stringify(device) + ": " + JSON.stringify(msg, null, 2));
++
++    let message = JSON.stringify(msg);
++    let rawMessage = converter.convertToByteArray(message);
++    try {
++      this._socket.send(device.ip, device.port, rawMessage, rawMessage.length);
++    } catch(e) {
++      log("Failed to send message: " + e);
++    }
++  },
++
++  close: function() {
++    if (this._socket) {
++      this._socket.close();
++      this._socket = null;
++    }
++  },
++
++  get port() {
++    return this._socket.port;
++  },
++};
++
++function PresentationServer() {
++  this.on = on.bind(null, this);
++  this.off = off.bind(null, this);
++  this.once = once.bind(null, this);
++
++  this._updateDevice = this._updateDevice.bind(this);
++}
++
++/*
++|Scan|
++            scanForDevices() -> discovery.scan()
++emit(update-device| devices) <- emit(presentation-device-added|updated|removed)
++
++|requestSession|
++          requestSession(offer)      ->     send(reqeustSession{offer})    ==> emit(requestSession, offer)
++emit(requestSession:Answer, answer) <== send(requestSession:Answer{answer}) <- responseSession(answer)
++ */
++PresentationServer.prototype = {
++  _waitForResponse: [],
++
++  init: function() {
++    this._channel = new SignalingChannel();
++    this._channel.onmessage = this._handleMessage.bind(this);
++    discovery.addService(PRESENTATION_SERVICE, { port: this._channel.port });
++    discovery.on("presentation-device-added", this._updateDevice);
++    discovery.on("presentation-device-updated", this._updateDevice);
++    discovery.on("presentation-device-removed", this._updateDevice);
++  },
++
++  deinit: function() {
++    if (this._channel) {
++      this._channel.close();
++    }
++    discovery.removeService(PRESENTATION_SERVICE);
++    discovery.off("presentation-device-added", this._updateDevice);
++    discovery.off("presentation-device-updated", this._updateDevice);
++    discovery.off("presentation-device-removed", this._updateDevice);
++  },
++
++  scanForDevices: function() {
++    discovery.scan();
++  },
++
++  requestSession: function(device, url, offer) {
++    log('requestSession to ' + JSON.stringify(device) + ': ' + url + ', ' + JSON.stringify(offer));
++    let msg = {
++      type: 'requestSession',
++      url: url,
++      offer: offer,
++    };
++    this._channel.send(device, msg);
++    this._waitForResponse.push(device);
++  },
++
++  responseSession: function(device, answer) {
++    log('response to ' + JSON.stringify(device) + ': ' + JSON.stringify(answer));
++    let msg = {
++      type: 'requestSession:Answer',
++      answer: answer,
++    };
++    this._channel.send(device, msg);
++  },
++
++  _updateDevice: function() {
++    var devices = [];
++    for (let device of discovery.getRemoteDevicesWithService(PRESENTATION_SERVICE)) {
++      let service = discovery.getRemoteService(PRESENTATION_SERVICE, device);
++      log('found device ' + device + ' on ' + service.host + ':' + service.port);
++      devices.push(new Device(device, service.host, service.port));
++    }
++
++    emit(this, "update-device", devices);
++  },
++
++  _handleMessage: function(device, msg) {
++    log('handleMessage from ' + JSON.stringify(device) + ': ' + JSON.stringify(msg));
++    switch (msg.type) {
++      case 'requestSession':
++        emit(this, 'requestSession', {
++          device: device,
++          url: msg.url,
++          offer: msg.offer,
++        });
++        break;
++      case 'requestSession:Answer':
++        // TODO match with waiting list, probably need a requestId
++        this._waitForResponse.shift();
++        emit(this, 'requestSession:Answer', msg.answer);
++        break;
++      case 'ondata':
++        emit(this, 'ondata', msg);
++        break;
++      case 'sessionClose':
++        emit(this, 'sessionClose', msg.channelId);
++        break;
++    }
++  },
++
++  sessionSend: function(device, channelId, message) {
++    log('sessionSend to ' + JSON.stringify(device) + ': ' + JSON.stringify(message));
++    let msg = {
++      type: 'ondata',
++      channelId: channelId,
++      message: message,
++    };
++    this._channel.send(device, msg);
++  },
++
++  sessionClose: function(device, channelId) {
++    log('sessionClose to ' + JSON.stringify(device) + ': ' + channelId);
++    let msg = {
++      type: 'sessionClose',
++      channelId: channelId,
++    };
++    this._channel.send(device, msg);
++  },
++};
++
++this.presentationServer = new PresentationServer();
+diff --git a/toolkit/devtools/discovery/discovery.js b/toolkit/devtools/discovery/discovery.js
+--- a/toolkit/devtools/discovery/discovery.js
++++ b/toolkit/devtools/discovery/discovery.js
+@@ -290,17 +290,17 @@ Discovery.prototype = {
+ 
+   /**
+    * Scan for service updates from other devices.
+    */
+   scan: function() {
+     this._startListeningForUpdate();
+     this._waitForReplies();
+     // TODO Bug 1027457: Use timer to debounce
+-    this._sendStatusTo(SCAN_PORT);
++    this._sendStatusTo(this._transports.update, SCAN_PORT);
+   },
+ 
+   /**
+    * Get a list of all remote devices currently offering some service.:w
+    */
+   getRemoteDevices: function() {
+     let devices = new Set();
+     for (let service in this.remoteServices) {
+@@ -413,36 +413,40 @@ Discovery.prototype = {
+       return this._transports.scan;
+     }
+     if (this._transports.update) {
+       return this._transports.update;
+     }
+     return null;
+   },
+ 
+-  _sendStatusTo: function(port) {
++  _sendStatusTo: function(transport, port) {
+     let status = {
+       device: this.device.name,
+       services: this.localServices
+     };
+-    this._outgoingTransport.send(status, port);
++    transport.send(status, port);
+   },
+ 
+   _onRemoteScan: function() {
+     // Send my own status in response
+     log("GOT SCAN REQUEST");
+-    this._sendStatusTo(UPDATE_PORT);
++    this._sendStatusTo(this._transports.scan, UPDATE_PORT);
+   },
+ 
+   _onRemoteUpdate: function(e, update) {
+     log("GOT REMOTE UPDATE");
+ 
+     let remoteDevice = update.device;
+     let remoteHost = update.from;
+ 
++    if (remoteDevice === this.device.name) {
++      log("IGNORE SELF");
++      return;
++    }
+     // Record the reply as received so it won't be purged as missing
+     this._expectingReplies.from.delete(remoteDevice);
+ 
+     // First, loop over the known services
+     for (let service in this.remoteServices) {
+       let devicesWithService = this.remoteServices[service];
+       let hadServiceForDevice = !!devicesWithService[remoteDevice];
+       let haveServiceForDevice = service in update.services;

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+.box {
+width:100px;
+height:100px;
+background:red;
+display:block;
+}
+
+.box1 {
+width:200px;
+height:200px;
+background:red;
+display:block;
+transition:width 2s, height 2s;
+}
+
+</style>
+</head>
+<body>
+
+<p><b>Note:</b> This example does not work in Internet Explorer.</p>
+
+<div class="box"></div>
+<script>
+window.setTimeout(function() {
+  var el = document.querySelector('div.box');
+  el.className = 'box1';
+}, 500);
+</script>
+</body>
+</html>
+

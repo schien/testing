@@ -1,0 +1,43 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>Image Memeory Presure</title>
+</head>
+<body>
+<div id="image-hash"></div>
+<script>
+var imageHash = document.getElementById('image-hash');
+
+function loadImage(height, width, color) {
+  var image = new Image(100, 100);
+  image.src = 'http://placehold.it/' + height + 'x' + width + '/' + color + '.jpg';
+  imageHash.appendChild(image);
+  return image;
+}
+
+var imgArray = [];
+
+var colorArray = [
+  "00", "0f", "f0", "ff"
+];
+
+for (var r = 0; r < colorArray.length; r++) {
+  for (var g = 0; g < colorArray.length; g++) {
+    for (var b = 0; b < colorArray.length; b++) {
+      imgArray.push(colorArray[r] + colorArray[g] + colorArray[b]);
+    }
+  }
+}
+var index = 0;
+
+var imgElementArray = [];
+function testLoad() {
+  for (var i = 0; i < imgArray.length; i++) {
+        imgElementArray[index] = loadImage(512, 512, imgArray[i]);
+  }
+}
+
+window.onload = testLoad;
+</script>
+</body>
+</html> 

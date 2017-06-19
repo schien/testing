@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name='viewport' content='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1'>
+<title>Presentation API - Secondary Page</title>
+<style>
+  #dialog div.local {
+    color: blue;
+  }
+  #dialog div.remote {
+    color: red;
+  }
+</style>
+<!-- Polyfill libraries -->
+<script defer src='js/polyfill_presentation_session.js'></script>
+<script defer src='js/polyfill_presentation.js'></script>
+<!-- User script -->
+<script defer src='js/secondary.js'></script>
+</head>
+
+<body>
+<h2>Presenter Page</h2>
+<section>
+  <input id="chattxt"></input>
+  <button id="sendbutton">Send</button>
+  <button id="closebutton">Close</button>
+</section>
+<hr/>
+<section>
+  <div id="dialog"></div>
+</section>
+</body>
+</html>

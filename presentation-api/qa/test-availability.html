@@ -1,0 +1,31 @@
+<html>
+  <head>
+  </head>
+  <body>
+    <script>
+function print_log(str) {
+  console.log(str);
+  var logger = document.getElementById('logger');
+  logger.innerHTML += str + '<br/>';
+}
+
+function testAvailability(requestUrl) {
+  var req = new PresentationRequest(requestUrl);
+  req.getAvailability().then(function() {
+    print_log('1');
+    req.getAvailability().then(function() { print_log('1-1'); });
+    req.getAvailability().then(function() { print_log('1-2'); });
+  }).then(req.getAvailability()).then(function() {print_log('1.1');});
+  req.getAvailability().then(function() {
+    print_log('2');
+  });
+}
+
+    </script>
+    <p>
+      <button onclick="testAvailability('test-receiver.html');" style="height:50px;width:100%">Test Availability</button>
+    </p>
+<p id="logger">
+</p>
+  </body>
+</html>
