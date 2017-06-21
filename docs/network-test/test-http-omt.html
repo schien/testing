@@ -29,32 +29,46 @@ var xhr_tests = [
   ['xhr-3m', 'rnd-3m.txt']
 ];
 
+var busy_pattern = [
+  'low', 'mid', 'high'
+];
+
 var testcases = [];
 
 function listTests(category, tests) {
+  var root = document.getElementById('testcases');
   var p = document.createElement('p');
   p.textContent = category;
   tests.forEach(function(v, k) {
     var div = document.createElement('div');
     div.textContent = k;
+
     var idle_link = document.createElement('a');
     idle_link.href = perf_base_url + category + '=' + v;
     idle_link.textContent = 'idle';
-    var busy_link = document.createElement('a');
-    busy_link.href = perf_base_url + category + '=' + v + '&busy';
-    busy_link.textContent = 'busy';
     div.appendChild(idle_link);
-    div.appendChild(busy_link);
-    p.appendChild(div);
-
-    idle_link.onclick = busy_link.onclick = function (e) {
+    idle_link.onclick = function (e) {
       runTest(e.target);
       e.preventDefault();
     };
 
-    testcases.push(idle_link, busy_link);
+    testcases.push(idle_link);
+
+    for (var pattern of busy_pattern) {
+      var busy_link = document.createElement('a');
+      busy_link.href = perf_base_url + category + '=' + v + '&busy=' + pattern;
+      busy_link.textContent = 'busy(' + pattern + ')';
+      div.appendChild(busy_link);
+      busy_link.onclick = function (e) {
+        runTest(e.target);
+        e.preventDefault();
+      };
+      testcases.push(busy_link);
+    }
+
+    p.appendChild(div);
   });
-  document.body.appendChild(p);
+  root.appendChild(p);
 }
 
 var currentTest = -1;
@@ -66,7 +80,7 @@ function runAll() {
 function runTest(target) {
   console.log('run test for ' + target.href);
   var href = target.href;
-  var numOfRuns = 20;
+  var numOfRuns = 1;
   var perfData = [];
 
   window.onmessage = function(e) {
@@ -85,9 +99,12 @@ function runTest(target) {
 }
 
 function displayResults(perfData, target) {
+  var resultOutput = document.getElementById('results');
   var total = 0;
+  var href = target.href;
   for (var data of perfData) {
     total += data;
+    resultOutput.value += href + ', ' + data + '\n';
   }
 
   var avg = total / perfData.length;
@@ -110,5 +127,7 @@ window.onload = function() {
 };
   </script>
 <button onclick="runAll(); return false;">run all tests</button>
+<p id="testcases"></p>
+<textarea id="results"></textarea>
 </body>
 </html>

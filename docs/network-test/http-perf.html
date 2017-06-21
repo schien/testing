@@ -88,11 +88,16 @@ function pausecomp(millis)
   while(curDate-date < millis);
 }
 
-async function runBusyLoop() {
-  console.log('busy loop start');
-  for (var i = 0; i < 10; i++) {
-    await sleep(50);
-    pausecomp(450);
+const loadPattern = {
+  'low': [50, 50],
+  'mid': [50, 450],
+  'high': [20, 480],
+};
+async function runBusyLoop(pattern) {
+  console.log('busy loop start: idle ' + pattern[0] + ' ms every ' + pattern[1] + ' ms');
+  for (var i = 0; i < 100; i++) {
+    await sleep(pattern[0]);
+    pausecomp(pattern[1]);
   }
   console.log('busy loop finished');
 }
@@ -107,7 +112,7 @@ window.onload = function() {
   }
 
   if ('busy' in urlParams) {
-    runBusyLoop();
+    runBusyLoop(loadPattern[urlParams['busy']]);
   }
 };
   </script>
