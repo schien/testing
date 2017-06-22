@@ -80,7 +80,7 @@ function runAll() {
 function runTest(target) {
   console.log('run test for ' + target.href);
   var href = target.href;
-  var numOfRuns = 1;
+  var numOfRuns = document.getElementById('test_run').valueAsNumber;
   var perfData = [];
 
   window.onmessage = function(e) {
@@ -126,7 +126,7 @@ window.onload = function() {
   listTests('xhr', new Map(xhr_tests));
 };
   </script>
-<button onclick="runAll(); return false;">run all tests</button>
+  <button onclick="runAll(); return false;">run all tests</button><input id="test_run" type="number" value="30"/>
 <p id="testcases"></p>
 <textarea id="results"></textarea>
 </body>
